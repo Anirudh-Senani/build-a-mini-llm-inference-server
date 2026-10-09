@@ -196,3 +196,20 @@ def model_prefill(token_ids, params):
 
     return np.array(logits.tolist()), cache
 
+# Step 16 - model_decode_step
+def model_decode_step(token_id, cache, params):
+    """Advance generation by one token using the existing KV cache."""
+    # TODO: advance generation by one token using the existing KV cache and return next-token logits
+    x = embed_tokens([token_id], params['embedding'])
+    q = linear_projection(x, params['Wq'], params.get('bq', None))
+    k = linear_projection(x, params['Wk'], params.get('bk', None))
+    v = linear_projection(x, params['Wv'], params.get('bv', None))
+
+    cache = append_kv(cache, k, v)
+    attn = causal_attention(q, cache['K'][:cache['length']], cache['V'][:cache['length']], is_causal=False)
+
+    out = linear_projection(attn, params['Wo'], params.get('bo', None))
+    logits = linear_projection(out, params['W_out'], params.get('b_out', None))
+
+    return np.array(logits[0].tolist()), cache
+
