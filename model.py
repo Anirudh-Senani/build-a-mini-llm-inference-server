@@ -56,7 +56,7 @@ def top_p_filter(logits, p):
     probs = stable_softmax(logits)
     inds = np.argsort(-probs, axis=-1)
     cum_prob = np.cumsum(probs[np.arange(logits.shape[0])[:,None],inds], axis=-1)
-    top_p_ind = np.clip((cum_prob <= p).sum(axis=-1, keepdims=True), 0, logits.shape[1]-1)
+    top_p_ind = np.minimum((cum_prob <= p).sum(axis=-1, keepdims=True), logits.shape[1]-1)
 
     mask = np.arange(logits.shape[1]) <= top_p_ind
     mask = mask[np.arange(logits.shape[0])[:, None], np.argsort(inds, axis=-1)]
