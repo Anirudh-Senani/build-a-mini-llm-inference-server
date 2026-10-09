@@ -109,6 +109,6 @@ def encode_prompt(text, vocab, add_bos=True):
     if add_bos:
         encoded.append(vocab['token_to_id']['<bos>'])
 
-    unk_tok = vocab['token_to_id']['<unk>']
-    return encoded + [vocab['token_to_id'].get(ch, unk_tok) for ch in text]
+    unk_tok = vocab['token_to_id'].get('<unk>', None)
+    return encoded + [vocab['token_to_id'].get(ch, unk_tok) for ch in text if ch in vocab['token_to_id'] or unk_tok is not None]
 
