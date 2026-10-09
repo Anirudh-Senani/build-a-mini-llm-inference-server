@@ -112,3 +112,8 @@ def encode_prompt(text, vocab, add_bos=True):
     unk_tok = vocab['token_to_id'].get('<unk>', None)
     return encoded + [vocab['token_to_id'].get(ch, unk_tok) for ch in text if ch in vocab['token_to_id'] or unk_tok is not None]
 
+# Step 9 - decode_tokens
+def decode_tokens(token_ids, vocab, skip_special=True):
+    # TODO: convert token ids back into a string using vocab['id_to_token'], optionally skipping specials.
+    return ''.join([vocab['id_to_token'][tok] for tok in token_ids if not(skip_special and '<' in vocab['id_to_token'][tok])])
+
