@@ -66,3 +66,8 @@ def top_p_filter(logits, p):
         logits = logits[0]
     return logits
 
+# Step 5 - sample_from_probs
+def sample_from_probs(probs, rng):
+    # TODO: draw a single token id from the categorical distribution probs using rng
+    return int(rng.choice(probs.shape[0], p=probs))
+
