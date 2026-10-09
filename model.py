@@ -45,3 +45,24 @@ def top_k_filter(logits, k):
         logits = logits[0]
     return logits
 
+# Step 4 - top_p_filter
+def top_p_filter(logits, p):
+    # TODO: keep smallest set of tokens whose cumulative prob >= p, mask the rest to -inf.
+    flag = False
+    if logits.ndim == 1:
+        logits = logits[None, :]
+        flag = True
+
+    probs = stable_softmax(logits)
+    inds = np.argsort(-probs, axis=-1)
+    cum_prob = np.cumsum(probs[np.arange(logits.shape[0])[:,None],inds], axis=-1)
+    top_p_ind = np.clip((cum_prob <= p).sum(axis=-1, keepdims=True), 0, logits.shape[1]-1)
+
+    mask = np.arange(logits.shape[1]) <= top_p_ind
+    mask = mask[np.arange(logits.shape[0])[:, None], np.argsort(inds, axis=-1)]
+    logits[~mask] = -np.inf
+
+    if flag:
+        logits = logits[0]
+    return logits
+

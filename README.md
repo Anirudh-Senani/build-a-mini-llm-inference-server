@@ -13,6 +13,7 @@ python scaffold.py
 - [x] **1.** stable_softmax
 - [x] **2.** apply_temperature
 - [x] **3.** top_k_filter
+- [x] **4.** top_p_filter
 
 ---
 
