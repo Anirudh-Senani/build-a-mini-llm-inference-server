@@ -15,6 +15,7 @@ python scaffold.py
 - [x] **3.** top_k_filter
 - [x] **4.** top_p_filter
 - [x] **5.** sample_from_probs
+- [x] **6.** greedy_select
 
 ---
 
