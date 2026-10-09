@@ -213,3 +213,8 @@ def model_decode_step(token_id, cache, params):
 
     return np.array(logits[0].tolist()), cache
 
+# Step 17 - blocks_needed
+def blocks_needed(num_tokens, block_size):
+    # TODO: return the number of fixed-size blocks needed to store num_tokens tokens.
+    return (num_tokens + block_size - 1)//block_size
+
