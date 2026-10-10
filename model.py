@@ -271,3 +271,19 @@ def append_to_paged_cache(allocator, seq_id, k_new, v_new):
 
     allocator['seq_lengths'][seq_id] = L + t
 
+# Step 22 - gather_kv_from_blocks
+def gather_kv_from_blocks(allocator, seq_id):
+    # TODO: reconstruct contiguous (length, d_model) K and V from the sequence's paged blocks.
+    L = allocator['seq_lengths'].get(seq_id, 0)
+    K = []
+    V = []
+
+    for bid in allocator['seq_tables'][seq_id]:
+        K.append(allocator['K_blocks'][bid])
+        V.append(allocator['V_blocks'][bid])
+
+    K = np.concatenate(K, axis=0)[:L].astype(np.float32)
+    V = np.concatenate(V, axis=0)[:L].astype(np.float32)
+
+    return K, V
+
