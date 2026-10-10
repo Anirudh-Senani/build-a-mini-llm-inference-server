@@ -39,6 +39,7 @@ python scaffold.py
 - [x] **27.** init_sequence_state
 - [x] **28.** sequence_decode_step
 - [x] **29.** is_sequence_done
+- [x] **30.** generate_single_sequence
 
 ---
 

@@ -375,3 +375,14 @@ def is_sequence_done(state, eos_token_id):
 
     return ret
 
+# Step 30 - generate_single_sequence
+def generate_single_sequence(request, params, eos_token_id, rng):
+    # TODO: drive end-to-end generation for one request and return only the generated token ids.
+    state = init_sequence_state(request, params)
+    tokens = []
+    while not is_sequence_done(state, eos_token_id):
+        token_id, state = sequence_decode_step(state, params, rng)
+        tokens.append(token_id)
+
+    return tokens
+
