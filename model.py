@@ -330,7 +330,6 @@ def init_sequence_state(request, params):
     return dict(
         request_id=request['request_id'],
         prompt_token_ids=request['prompt_token_ids'].copy(),
-        generated_token_ids=[],
         generated=[],
         cache=cache,
         last_logits=logits,
@@ -338,4 +337,28 @@ def init_sequence_state(request, params):
         sampling_params=request['sampling_params'],
         max_new_tokens=request['max_new_tokens']
     )
+
+# Step 28 - sequence_decode_step
+def sequence_decode_step(state, params, rng):
+    # TODO: sample next token from state['last_logits'], advance cache via model_decode_step, append token.
+    if state['sampling_params']['greedy']:
+        token_id = greedy_select(state['last_logits'])
+    else:
+        logits = state['last_logits']
+        if 'temperature' in state['request']['sampling_params']:
+            logits = apply_temperature(logits, state['request']['sampling_params']['temperature'])
+        if 'top_k' in state['request']['sampling_params']:
+            logits = top_k_filter(logits, state['request']['sampling_params']['top_k'])
+        if 'top_p' in state['request']['sampling_params']:
+            logits = top_p_filter(logits, state['request']['sampling_params']['top_p'])
+
+        probs = stable_softmax(logits)
+        token_id = sample_from_probs(probs, rng)
+
+    logits, cache = model_decode_step(token_id, state['cache'], params)
+    state['cache'] = cache
+    state['last_logits'] = logits
+    state['generated'].append(token_id)
+
+    return token_id, state
 
