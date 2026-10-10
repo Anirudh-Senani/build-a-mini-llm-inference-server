@@ -295,3 +295,12 @@ def paged_attention_step(q, allocator, seq_id):
 
     return np.array(logits.tolist())
 
+# Step 24 - free_sequence_blocks
+def free_sequence_blocks(allocator, seq_id):
+    # TODO: release all blocks owned by seq_id and remove its entry from seq_tables.
+    for bid in allocator['seq_tables'].get(seq_id, []):
+        free_block(allocator, bid)
+
+    if seq_id in allocator['seq_tables']:
+        del allocator['seq_tables'][seq_id]
+
