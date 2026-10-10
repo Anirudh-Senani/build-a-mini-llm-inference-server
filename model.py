@@ -304,3 +304,12 @@ def free_sequence_blocks(allocator, seq_id):
     if seq_id in allocator['seq_tables']:
         del allocator['seq_tables'][seq_id]
 
+# Step 25 - kv_blocks_in_use
+def kv_blocks_in_use(allocator):
+    # TODO: report allocator usage as {'used': int, 'free': int, 'total': int}.
+    return dict(
+        used=allocator['num_blocks'] - len(allocator['free_list']),
+        free=len(allocator['free_list']),
+        total=allocator['num_blocks']
+    )
+
