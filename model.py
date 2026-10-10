@@ -231,3 +231,14 @@ def init_block_allocator(num_blocks, block_size, d_model):
         seq_tables={}
     )
 
+# Step 19 - allocate_block
+def allocate_block(allocator, seq_id):
+    # TODO: pop one free block id and append it to allocator['seq_tables'][seq_id]; raise RuntimeError if OOM.
+    if not allocator['free_list']:
+        raise RuntimeError("Out of Memory blocks to allocate")
+
+    block_id = allocator['free_list'].pop()
+    allocator['seq_tables'][seq_id] = allocator['seq_tables'].get(seq_id, []) + [block_id]
+
+    return block_id
+
