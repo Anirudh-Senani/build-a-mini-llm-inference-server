@@ -341,16 +341,16 @@ def init_sequence_state(request, params):
 # Step 28 - sequence_decode_step
 def sequence_decode_step(state, params, rng):
     # TODO: sample next token from state['last_logits'], advance cache via model_decode_step, append token.
-    if state['sampling_params']['greedy']:
+    if not 'temperature' in state['sampling_params'] or state['sampling_params']['temperature']<=0:
         token_id = greedy_select(state['last_logits'])
     else:
         logits = state['last_logits']
-        if 'temperature' in state['request']['sampling_params']:
-            logits = apply_temperature(logits, state['request']['sampling_params']['temperature'])
-        if 'top_k' in state['request']['sampling_params']:
-            logits = top_k_filter(logits, state['request']['sampling_params']['top_k'])
-        if 'top_p' in state['request']['sampling_params']:
-            logits = top_p_filter(logits, state['request']['sampling_params']['top_p'])
+        if 'temperature' in state['sampling_params']:
+            logits = apply_temperature(logits, state['sampling_params']['temperature'])
+        if 'top_k' in state['sampling_params']:
+            logits = top_k_filter(logits, state['sampling_params']['top_k'])
+        if 'top_p' in state['sampling_params']:
+            logits = top_p_filter(logits, state['sampling_params']['top_p'])
 
         probs = stable_softmax(logits)
         token_id = sample_from_probs(probs, rng)
