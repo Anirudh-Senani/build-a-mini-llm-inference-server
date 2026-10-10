@@ -405,3 +405,29 @@ def build_batch_step_input(sequences):
         input_ids=np.array(input_ids, dtype=np.int64)
     )
 
+# Step 32 - batched_decode_step
+def batched_decode_step(params, sequences, sampling_config):
+    """Run one synchronized decode step across active sequences."""
+    # TODO: For each active sequence, run a decode step and append the sampled token.
+    batch = build_batch_step_input(sequences)
+    for idx, tok in zip(batch['active_indices'], batch['input_ids']):
+        seq = sequences[idx]
+        logits, _ = model_decode_step(int(tok), seq['kv_cache'], params)
+
+        if not 'temperature' in sampling_config or sampling_config['temperature']<=0:
+            token_id = greedy_select(logits)
+        else:
+            if 'temperature' in sampling_config:
+                logits = apply_temperature(logits, sampling_config['temperature'])
+            if 'top_k' in sampling_config:
+                logits = top_k_filter(logits, sampling_config['top_k'])
+            if 'top_p' in sampling_config:
+                logits = top_p_filter(logits, sampling_config['top_p'])
+
+            probs = stable_softmax(logits)
+            token_id = sample_from_probs(probs, sampling_config['rng'])
+
+        sequences[idx]['token_ids'].append(token_id)
+
+    return sequences
+
