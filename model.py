@@ -412,22 +412,42 @@ def batched_decode_step(params, sequences, sampling_config):
     batch = build_batch_step_input(sequences)
     for idx, tok in zip(batch['active_indices'], batch['input_ids']):
         seq = sequences[idx]
-        logits, _ = model_decode_step(int(tok), seq['kv_cache'], params)
+        if 'max_new_tokens' not in seq or ('max_new_tokens' in seq and seq['max_new_tokens'] > len(seq['generated'])):
+            logits, cache = model_decode_step(int(tok), seq['kv_cache'], params)
 
-        if not 'temperature' in sampling_config or sampling_config['temperature']<=0:
-            token_id = greedy_select(logits)
-        else:
-            if 'temperature' in sampling_config:
-                logits = apply_temperature(logits, sampling_config['temperature'])
-            if 'top_k' in sampling_config:
-                logits = top_k_filter(logits, sampling_config['top_k'])
-            if 'top_p' in sampling_config:
-                logits = top_p_filter(logits, sampling_config['top_p'])
+            if not 'temperature' in sampling_config or sampling_config['temperature']<=0:
+                token_id = greedy_select(logits)
+            else:
+                if 'temperature' in sampling_config:
+                    logits = apply_temperature(logits, sampling_config['temperature'])
+                if 'top_k' in sampling_config:
+                    logits = top_k_filter(logits, sampling_config['top_k'])
+                if 'top_p' in sampling_config:
+                    logits = top_p_filter(logits, sampling_config['top_p'])
 
-            probs = stable_softmax(logits)
-            token_id = sample_from_probs(probs, sampling_config['rng'])
+                probs = stable_softmax(logits)
+                token_id = sample_from_probs(probs, sampling_config['rng'])
 
-        sequences[idx]['token_ids'].append(token_id)
+        
+            sequences[idx]['token_ids'].append(token_id)
+            sequences[idx]['generated'].append(token_id)
+            sequences[idx]['kv_cache'] = cache
 
     return sequences
+
+# Step 33 - static_batch_generate
+def static_batch_generate(params, requests, sampling_config, max_new_tokens):
+    """Run prefill for all requests, then iterate batched decode steps until each
+    sequence hits its per-request budget or the global max_new_tokens cap."""
+    # TODO: prefill each request, then loop sampling next tokens until done.
+    sequences = []
+    for req in requests:
+        state = init_sequence_state(req, params)
+        state['token_ids'] = state['prompt_token_ids'] + state['generated']
+        state['kv_cache'] = state['cache']
+        sequences.append(state)
+
+    for _ in range(max_new_tokens):
+        sequences = batched_decode_step(params, sequences, sampling_config)
+    return [dict(request_id=seq['request_id'], output_ids=seq['generated']) for seq in sequences]
 
