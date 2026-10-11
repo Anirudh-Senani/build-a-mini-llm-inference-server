@@ -451,3 +451,8 @@ def static_batch_generate(params, requests, sampling_config, max_new_tokens):
         sequences = batched_decode_step(params, sequences, sampling_config)
     return [dict(request_id=seq['request_id'], output_ids=seq['generated']) for seq in sequences]
 
+# Step 34 - has_free_capacity
+def has_free_capacity(allocator, required_blocks):
+    # TODO: return True iff allocator has at least required_blocks free blocks.
+    return len(allocator['free_list']) >= required_blocks
+
