@@ -482,7 +482,7 @@ def continuous_batch_step(params, running, allocator, sampling_config):
             logits = linear_projection(out, params['W_out'], params.get('b_out', None))[0]
             # logits = linear_projection(out, params['lm_head'])[0]
 
-            if not 'temperature' in sampling_config or sampling_config['temperature']<=0:
+            if ('greedy' in sampling_config and sampling_config['greedy']) or not 'temperature' in sampling_config or sampling_config['temperature']<=0:
                 token_id = greedy_select(logits)
             else:
                 if 'temperature' in sampling_config:
@@ -503,4 +503,47 @@ def continuous_batch_step(params, running, allocator, sampling_config):
                 free_sequence_blocks(allocator, seq_id)
 
     return running
+
+# Step 36 - run_continuous_batching
+def run_continuous_batching(params, requests, allocator, sampling_config, max_steps):
+    # TODO: Drive the continuous-batching loop: admit, decode, retire finished sequences.
+    waiting = [req for req in requests]
+    max_seq_len = 0
+    for seq_id in range(len(waiting)):
+        waiting[seq_id]['seq_id'] = seq_id
+        waiting[seq_id]['sampling_params'] = waiting[seq_id].get('sampling_params', {})
+        max_seq_len = max(max_seq_len, len(waiting[seq_id]['prompt_token_ids']) + waiting[seq_id]['max_new_tokens'])
+    running = []
+    completed = []
+
+    params['max_seq_len'] = params.get('max_seq_len', max_seq_len)
+
+    for _ in range(max_steps):
+        stats = kv_blocks_in_use(allocator)
+        i = 0
+        while i < len(waiting):
+            if blocks_needed(len(waiting[i]['prompt_token_ids']), allocator['block_size']) <= stats['free']:
+                state = init_sequence_state(waiting[i], params)
+                append_to_paged_cache(allocator, i, state['cache']['K'], state['cache']['V'])
+                del state['cache']
+                state['seq_id'] = waiting[i]['seq_id']
+                state['token_ids'] = state['prompt_token_ids'] + state['generated']
+                running.append(state)
+                stats = kv_blocks_in_use(allocator)
+                waiting.pop(i)
+            else:
+                i += 1
+
+        continuous_batch_step(params, running, allocator, sampling_config)
+        r = 0
+        while i < len(running):
+            if running[i]['done']:
+                completed.append(running.pop(i))
+            else:
+                i += 1
+
+        if len(waiting) + len(running) == 0:
+            break
+
+    return [dict(request_id=req['request_id'], output_ids=req['generated']) for req in completed]
 
