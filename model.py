@@ -461,6 +461,7 @@ def continuous_batch_step(params, running, allocator, sampling_config):
     """Advance every active sequence in `running` by one decoded token using the paged allocator."""
     # TODO: for each non-done sequence, project Q/K/V from its last token, append to the paged cache, run paged attention, sample, and append.
     for seq_id, seq in enumerate(running):
+        seq_id = seq.get('seq_id', seq_id)
         if seq['done']:
             continue
         # done = is_sequence_done(seq, sampling_config['eos_token_id'])
