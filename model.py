@@ -463,6 +463,10 @@ def continuous_batch_step(params, running, allocator, sampling_config):
     for seq_id, seq in enumerate(running):
         if seq['done']:
             continue
+        # done = is_sequence_done(seq, sampling_config['eos_token_id'])
+        # if done:
+        #     running[seq_id]['done'] = True
+        #     free_sequence_blocks(allocator, seq_id)
         else:
             token_id = seq['token_ids'][-1]
             x = embed_tokens([token_id], params['embedding'])
