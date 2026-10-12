@@ -460,8 +460,8 @@ def has_free_capacity(allocator, required_blocks):
 def continuous_batch_step(params, running, allocator, sampling_config):
     """Advance every active sequence in `running` by one decoded token using the paged allocator."""
     # TODO: for each non-done sequence, project Q/K/V from its last token, append to the paged cache, run paged attention, sample, and append.
-    for seq_id, seq in enumerate(running):
-        seq_id = seq.get('seq_id', seq_id)
+    for ind, seq in enumerate(running):
+        seq_id = seq.get('seq_id', ind)
         if seq['done']:
             continue
         # done = is_sequence_done(seq, sampling_config['eos_token_id'])
@@ -495,11 +495,11 @@ def continuous_batch_step(params, running, allocator, sampling_config):
                 probs = stable_softmax(logits)
                 token_id = sample_from_probs(probs, sampling_config['rng'])
 
-            running[seq_id]['token_ids'].append(token_id)
-            running[seq_id]['generated'].append(token_id)
-            running[seq_id]['length'] += 1
-            running[seq_id]['done'] = is_sequence_done(seq, sampling_config['eos_token_id'])
-            if running[seq_id]['done']:
+            running[ind]['token_ids'].append(token_id)
+            running[ind]['generated'].append(token_id)
+            running[ind]['length'] += 1
+            running[ind]['done'] = is_sequence_done(seq, sampling_config['eos_token_id'])
+            if running[ind]['done']:
                 free_sequence_blocks(allocator, seq_id)
 
     return running
@@ -516,7 +516,7 @@ def run_continuous_batching(params, requests, allocator, sampling_config, max_st
     running = []
     completed = []
 
-    params['max_seq_len'] = params.get('max_seq_len', max_seq_len)
+    params['max_seq_len'] = max_seq_len
 
     for _ in range(max_steps):
         stats = kv_blocks_in_use(allocator)
@@ -524,10 +524,11 @@ def run_continuous_batching(params, requests, allocator, sampling_config, max_st
         while i < len(waiting):
             if blocks_needed(len(waiting[i]['prompt_token_ids']), allocator['block_size']) <= stats['free']:
                 state = init_sequence_state(waiting[i], params)
-                append_to_paged_cache(allocator, i, state['cache']['K'], state['cache']['V'])
+                append_to_paged_cache(allocator, waiting[i]['seq_id'], state['cache']['K'], state['cache']['V'])
                 del state['cache']
                 state['seq_id'] = waiting[i]['seq_id']
                 state['token_ids'] = state['prompt_token_ids'] + state['generated']
+                state['length'] = len(state['token_ids'])
                 running.append(state)
                 stats = kv_blocks_in_use(allocator)
                 waiting.pop(i)
@@ -536,14 +537,16 @@ def run_continuous_batching(params, requests, allocator, sampling_config, max_st
 
         continuous_batch_step(params, running, allocator, sampling_config)
         r = 0
-        while i < len(running):
-            if running[i]['done']:
+        while r < len(running):
+            if running[r]['done']:
                 completed.append(running.pop(i))
             else:
-                i += 1
+                r += 1
 
         if len(waiting) + len(running) == 0:
             break
+    else:
+        completed.extend(running)
 
     return [dict(request_id=req['request_id'], output_ids=req['generated']) for req in completed]
 
