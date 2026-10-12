@@ -456,3 +456,48 @@ def has_free_capacity(allocator, required_blocks):
     # TODO: return True iff allocator has at least required_blocks free blocks.
     return len(allocator['free_list']) >= required_blocks
 
+# Step 35 - continuous_batch_step
+def continuous_batch_step(params, running, allocator, sampling_config):
+    """Advance every active sequence in `running` by one decoded token using the paged allocator."""
+    # TODO: for each non-done sequence, project Q/K/V from its last token, append to the paged cache, run paged attention, sample, and append.
+    for seq_id, seq in enumerate(running):
+        if seq['done']:
+            continue
+        done = is_sequence_done(seq, sampling_config['eos_token_id'])
+        if done:
+            running[seq_id]['done'] = True
+            free_sequence_blocks(allocator, seq_id)
+        else:
+            token_id = seq['token_ids'][-1]
+            x = embed_tokens([token_id], params['embedding'])
+            q = linear_projection(x, params['Wq'], params.get('bq', None))
+            k_new = linear_projection(x, params['Wk'], params.get('bk', None))
+            v_new = linear_projection(x, params['Wv'], params.get('bv', None))
+
+            append_to_paged_cache(allocator, seq_id, k_new, v_new)
+            attn = paged_attention_step(q, allocator, seq_id)
+
+            out = linear_projection(attn, params['Wo'], params.get('bo', None))
+            logits = linear_projection(out, params['W_out'], params.get('b_out', None))[0]
+            # logits = linear_projection(out, params['lm_head'])[0]
+
+            if not 'temperature' in sampling_config or sampling_config['temperature']<=0:
+                token_id = greedy_select(logits)
+            else:
+                if 'temperature' in sampling_config:
+                    logits = apply_temperature(logits, sampling_config['temperature'])
+                if 'top_k' in sampling_config:
+                    logits = top_k_filter(logits, sampling_config['top_k'])
+                if 'top_p' in sampling_config:
+                    logits = top_p_filter(logits, sampling_config['top_p'])
+
+                probs = stable_softmax(logits)
+                token_id = sample_from_probs(probs, sampling_config['rng'])
+
+            running[seq_id]['token_ids'].append(token_id)
+            running[seq_id]['generated'].append(token_id)
+            running[seq_id]['length'] += 1
+            running[seq_id]['done'] = is_sequence_done(seq, sampling_config['eos_token_id'])
+
+    return running
+
