@@ -569,3 +569,22 @@ def priority_queue_pop(heap):
     # TODO: Pop and return the request with the smallest priority from the min-heap, or None if empty.
     return heapq.heappop(heap)[-1] if heap else None
 
+# Step 39 - select_admissions
+def select_admissions(waiting_heap, allocator, block_size, max_admit):
+    # TODO: Pop requests from the waiting priority queue and admit as many as the allocator can host.
+    admitted = []
+    available = len(allocator['free_list'])
+    while len(admitted) < max_admit:
+        req = priority_queue_pop(waiting_heap)
+        if req is None:
+            break
+        n_blocks = blocks_needed(len(req['prompt_token_ids']), block_size)
+        if n_blocks <= available:
+            admitted.append(req)
+            available -= n_blocks
+        else:
+            priority_queue_push(waiting_heap, req['priority'], req)
+            break
+
+    return admitted
+
