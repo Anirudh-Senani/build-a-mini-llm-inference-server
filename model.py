@@ -596,3 +596,29 @@ def preempt_sequence(sequence, allocator, waiting_heap):
 
     return sequence
 
+# Step 41 - schedule_step
+def schedule_step(waiting_heap, running, allocator, block_size, max_running):
+    # TODO: preempt over-capacity sequences, then admit from the waiting heap up to max_running.
+    while len(running) > max_running:
+        ind = max(range(len(running)), key=lambda x: (running[x]['priority'], x))
+        sequence = running.pop(ind)
+        preempt_sequence(sequence, allocator, waiting_heap)
+
+    slots = max(max_running - len(running), 0)
+    admitted = select_admissions(waiting_heap, allocator, block_size, slots)
+
+    return dict(
+        running=running,
+        newly_admitted=admitted
+    )
+
+# Step 42 - format_stream_chunk
+def format_stream_chunk(request_id, token_id, token_text, finished):
+    # TODO: package a streaming token event into a chunk dict with keys request_id, token_id, text, finished.
+    return dict(
+        request_id=request_id,
+        token_id=token_id,
+        text=token_text,
+        finished=finished
+    )
+

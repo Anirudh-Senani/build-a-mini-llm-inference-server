@@ -50,6 +50,8 @@ python scaffold.py
 - [x] **38.** priority_queue_pop
 - [x] **39.** select_admissions
 - [x] **40.** preempt_sequence
+- [x] **41.** schedule_step
+- [x] **42.** format_stream_chunk
 
 ---
 
