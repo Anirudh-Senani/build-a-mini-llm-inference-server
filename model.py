@@ -550,3 +550,15 @@ def run_continuous_batching(params, requests, allocator, sampling_config, max_st
 
     return [dict(request_id=req['request_id'], output_ids=req['generated']) for req in completed]
 
+# Step 37 - priority_queue_push
+import heapq
+
+def priority_queue_push(heap, priority, request):
+    # TODO: push (priority, counter, request) onto the min-heap with stable tie-breaking
+    counter = 0
+    if heap:
+        counter = max(heap, key=lambda x: x[1])[1] + 1
+
+    heapq.heappush(heap, (priority, counter, request))
+    return heap
+
