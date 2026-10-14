@@ -768,3 +768,22 @@ def inter_token_latency(events):
 
     return ilpr
 
+# Step 49 - aggregate_throughput
+def aggregate_throughput(events, total_time):
+    # TODO: count tokens and finished requests in events and divide by total_time.
+    rps = 0
+    tps = 0
+
+    for event in events:
+        if event['type'] in ('token', 'first_token'):
+            tps += 1
+        elif event['type'] == 'finish':
+            rps += 1
+
+    return dict(
+        tokens_per_second=tps/total_time,
+        requests_per_second=rps/total_time,
+        total_tokens=tps,
+        total_requests=rps
+    )
+
