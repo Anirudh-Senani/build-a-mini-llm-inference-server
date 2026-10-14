@@ -635,3 +635,67 @@ def submit_request(server_state, prompt, max_new_tokens, priority, vocab):
     priority_queue_push(server_state['waiting_heap'], priority, req)
     return request_id
 
+# Step 44 - drive_until_complete
+def drive_until_complete(server_state, params, allocator, sampling_config, vocab, max_steps):
+    # TODO: run admit/decode until queues are empty or max_steps is hit; return the new stream chunks.
+    max_running = server_state.get('max_running', 4)
+    server_state['completed'] = {}
+    server_state['streams'] = {}
+    if len(server_state['waiting_heap']) + len(server_state['running']) == 0:
+        return []
+
+    eos_token_id = server_state.get('eos_token_id', sampling_config.get('eos_token_id', -1))
+    sampling_config['eos_token_id'] = eos_token_id
+    block_size = allocator['block_size']
+
+    # chunks = {}
+    chunks = []
+    # step_chunks = []
+
+    for _ in range(max_steps):
+        # chunks = []
+        schedule = schedule_step(server_state['waiting_heap'], server_state['running'], allocator, block_size, max_running)
+        for seq in schedule['newly_admitted']:
+            seq['seq_id'] = seq['request_id']
+            token_ids = seq.get(
+                'token_ids', seq['prompt_token_ids'] + seq.get('generated', []))
+            prefix_ids = token_ids[:-1]
+            if prefix_ids:
+                x = embed_tokens(prefix_ids, params['embedding'])
+                k = linear_projection(x, params['Wk'], params.get('bk'))
+                v = linear_projection(x, params['Wv'], params.get('bv'))
+                append_to_paged_cache(allocator, seq['seq_id'], k, v)
+
+        server_state['running'] = schedule['running'] + schedule['newly_admitted']
+        for i in range(len(server_state['running'])):
+            server_state['running'][i]['done'] = server_state['running'][i].get('done', False)
+            if 'generated' not in server_state['running'][i]:
+                server_state['running'][i]['generated'] = []
+            if 'token_ids' not in server_state['running'][i]:
+                server_state['running'][i]['token_ids'] = server_state['running'][i]['prompt_token_ids'] + server_state['running'][i]['generated']
+            server_state['running'][i]['length'] = len(server_state['running'][i]['token_ids'])
+        continuous_batch_step(params, server_state['running'], allocator, sampling_config)
+
+        i = 0
+        while i < len(server_state['running']):
+            seq = server_state['running'][i]
+            token_id = seq['token_ids'][-1]
+            token_text = decode_tokens([token_id], vocab)
+            finished = seq['done']
+            chunk = format_stream_chunk(seq['request_id'], token_id, token_text, finished)
+            chunks.append(chunk)
+            # chunks[seq['request_id']] = chunks.get(seq['request_id'], []) + [chunk]
+            server_state['streams'][seq['request_id']] = server_state['streams'].get(seq['request_id'], []) + [chunk]
+
+            if finished:
+                finish_reason = 'EOS token' if seq['generated'][-1]==eos_token_id else "Budget reached"
+                server_state['completed'][seq['request_id']] = dict(request_id=seq['request_id'], output_ids=seq['generated'], chunks=server_state['streams'][seq['request_id']], finish_reason=finish_reason)
+                free_sequence_blocks(allocator, seq['request_id'])
+                server_state['running'].pop(i)
+            else:
+                 i += 1
+
+        # step_chunks.append(chunks)
+
+    return chunks
+
