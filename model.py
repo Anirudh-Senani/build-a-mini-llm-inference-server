@@ -257,8 +257,11 @@ def append_to_paged_cache(allocator, seq_id, k_new, v_new):
     L = allocator['seq_lengths'].get(seq_id, 0)
     t = k_new.shape[0]
     num_blocks = blocks_needed(L + t, allocator['block_size'])
+    blocks_allotted = blocks_needed(L, allocator['block_size'])
+    # blocks_allotted -= 1 if L%allocator['block_size'] else 0
+    # print(num_blocks, blocks_allotted)
 
-    for _ in range(num_blocks-L):
+    for _ in range(num_blocks-blocks_allotted):
         bid = allocate_block(allocator, seq_id)
         # allocator['seq_lengths'][seq_id] += 1
 
