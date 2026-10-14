@@ -699,3 +699,13 @@ def drive_until_complete(server_state, params, allocator, sampling_config, vocab
 
     return chunks
 
+# Step 45 - collect_request_output
+def collect_request_output(server_state, request_id):
+    # TODO: look up the completed record for request_id and return its output_ids and chunks
+    if 'completed' in server_state and request_id in server_state['completed']:
+        return dict(
+            request_id=request_id,
+            output_ids=server_state['completed'][request_id]['output_ids'],
+            chunks=server_state['completed'][request_id].get('chunks', server_state['completed'][request_id].get('streams', None))
+        )
+
