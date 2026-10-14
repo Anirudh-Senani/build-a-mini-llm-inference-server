@@ -709,3 +709,22 @@ def collect_request_output(server_state, request_id):
             chunks=server_state['completed'][request_id].get('chunks', server_state['completed'][request_id].get('streams', None))
         )
 
+# Step 46 - build_completion_response
+def build_completion_response(server_state, request_id, vocab):
+    # TODO: build the final OpenAI-style completion dict from the completed record.
+    out = collect_request_output(server_state, request_id)
+    if out is None:
+        return out
+
+    ends_with_eos = False
+    if len(out['output_ids']):
+        ends_with_eos = decode_tokens([out['output_ids'][-1]], vocab, False)
+
+    finish_reason = server_state['completed'][request_id].get('finish_reason', None) or "eos" if ends_with_eos else "stop"
+    return dict(
+        request_id=request_id,
+        text=decode_tokens(out['output_ids'], vocab),
+        output_ids=out['output_ids'].copy(),
+        finish_reason=finish_reason
+    )
+
