@@ -747,3 +747,24 @@ def time_to_first_token(events):
 
     return ttft
 
+# Step 48 - inter_token_latency
+def inter_token_latency(events):
+    # TODO: compute mean inter-token latency per request from token-event timestamps.
+    chrono = {}
+
+    for event in events:
+        if event['event'] == 'token':
+            chrono[event['request_id']] = chrono.get(event['request_id'], []) + [event['time']]
+
+    ilpr = {}
+    for key in chrono:
+        ilpr[key] = 0.0
+        ne = len(chrono[key])
+        if ne >= 2:
+            chrono[key].sort()
+            for i in range(1, ne):
+                ilpr[key] += chrono[key][i] - chrono[key][i-1]
+            ilpr[key] /= (ne-1)
+
+    return ilpr
+
