@@ -728,3 +728,22 @@ def build_completion_response(server_state, request_id, vocab):
         finish_reason=finish_reason
     )
 
+# Step 47 - time_to_first_token
+def time_to_first_token(events):
+    # TODO: compute per-request TTFT from a list of timestamped serving events.
+    submit = {}
+    ttft = {}
+
+    for event in events:
+        if event['event'] == 'submit':
+            submit[event['request_id']] = event['time']
+        elif event['event'] == 'token' and event['request_id'] not in ttft:
+        # elif (event['event'] == 'token' or event['event'] == 'finished') and event['request_id'] not in ttft:
+            if event['request_id'] in submit:
+                ttft[event['request_id']] = event['time'] - submit[event['request_id']]
+        elif event['event'] == 'token' and event['request_id'] in ttft:
+            if event['request_id'] in submit:
+                ttft[event['request_id']] = min(ttft[event['request_id']], event['time'] - submit[event['request_id']])
+
+    return ttft
+
