@@ -799,3 +799,38 @@ def latency_percentiles(latencies, percentiles):
 
     return {float(p): float(v) for p, v in zip(percentiles, values)}
 
+# Step 51 - run_throughput_latency_benchmark
+import time
+
+def run_throughput_latency_benchmark(params, allocator, vocab, prompts, sampling_config, max_new_tokens, max_steps):
+    # TODO: submit prompts, drive the server, and reduce events into TTFT/ITL/throughput/percentile metrics.
+    t0 = time.perf_counter()
+    events = []
+    server_state = {'waiting_heap': [], 'running': [], 'next_request_id': 0, 'stream': {}, 'completed': {}}
+    first_token = set()
+    for prompt in prompts:
+        req_id = submit_request(server_state, prompt, max_new_tokens, 0, vocab)
+        events.append({'request_id': req_id, 'event': 'submit', 'type': 'submit', 'time': time.perf_counter() - t0})
+
+    for _ in range(max_steps):
+        chunks = drive_until_complete(server_state, params, allocator, sampling_config, vocab, 1)
+        for chunk in chunks:
+            if chunk['request_id'] in first_token:
+                events.append({'request_id': chunk['request_id'], 'event': 'token', 'type': 'token', 'time': time.perf_counter() - t0})
+                first_token.add(chunk['request_id'])
+            else:
+                events.append({'request_id': chunk['request_id'], 'event': 'token', 'type': 'first_token', 'time': time.perf_counter() - t0})
+
+            if chunk['finished']:
+                events.append({'request_id': chunk['request_id'], 'event': 'finish', 'type': 'finish', 'time': time.perf_counter() - t0})
+
+    total_time = time.perf_counter() - t0
+    ttft = time_to_first_token(events)
+    return dict(
+        ttft=ttft,
+        itl=inter_token_latency(events),
+        throughput=aggregate_throughput(events, total_time),
+        percentiles=latency_percentiles(list(ttft.values()), sampling_config.get('percentiles', [50, 90, 99])),
+        total_time=total_time
+    )
+
